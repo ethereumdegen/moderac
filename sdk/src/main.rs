@@ -50,7 +50,8 @@ enum Commands {
     },
 
     /// Print detailed help explaining moderac for AI agents
-    Help,
+    #[command(name = "agent-help")]
+    AgentHelp,
 }
 
 #[tokio::main]
@@ -65,7 +66,7 @@ async fn main() {
         Commands::Test { remote, tag, name } => cmd_test(&dir, json, remote, tag, name).await,
         Commands::Sync => cmd_sync(&dir, json).await,
         Commands::Show { file } => cmd_show(&file, json),
-        Commands::Help => { println!("{}", moderac::help::agent_help()); 0 }
+        Commands::AgentHelp => { println!("{}", moderac::help::agent_help()); 0 }
     };
 
     std::process::exit(code);
@@ -337,6 +338,15 @@ async fn cmd_test(dir: &PathBuf, json: bool, remote: bool, tag: Option<String>, 
 }
 
 async fn cmd_sync(dir: &PathBuf, json: bool) -> i32 {
+    if std::env::var("MODERAC_API_KEY").is_err() {
+        if json {
+            println!("{}", serde_json::json!({ "status": "error", "error": "MODERAC_API_KEY environment variable is required for sync" }));
+        } else {
+            eprintln!("{} MODERAC_API_KEY environment variable is required for sync", "error:".red().bold());
+            eprintln!("  Set it with: {}", "export MODERAC_API_KEY=mdr_...".bold());
+        }
+        return 2;
+    }
     let client = moderac::Client::from_env();
     match client.sync_local_tests(Some(dir)).await {
         Ok(count) => {

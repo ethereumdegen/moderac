@@ -172,7 +172,7 @@ moderac test --tag <tag> [--json]   Filter by tag
 moderac test --name <name> [--json] Run a single test by name
 moderac sync                        Push local tests to remote project
 moderac show <file> [--json]        Display a parsed .md file
-moderac help                        Print this help text
+moderac agent-help                  Print this help text (for AI agents)
 ```
 
 ### Global flags:
