@@ -1,0 +1,6 @@
+/target
+node_modules
+.env
+*.db
+*.db-journal
+/frontend/dist
