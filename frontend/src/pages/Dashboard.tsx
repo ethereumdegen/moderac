@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { api, type Project } from '../lib/api'
+import { useSession } from '../lib/auth-client'
 import SiteHeader from '../components/SiteHeader'
 
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([])
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null)
+  const { data: session } = useSession()
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
 
   useEffect(() => {
-    api.me().then(setUser)
-    api.listProjects().then(setProjects)
+    api.listProjects().then(setProjects).catch(() => {})
   }, [])
 
   async function handleCreate(e: React.FormEvent) {
@@ -26,7 +26,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SiteHeader user={user} />
+      <SiteHeader user={session?.user} />
       <div className="flex-1 max-w-4xl mx-auto w-full px-6 py-10">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold">Projects</h1>

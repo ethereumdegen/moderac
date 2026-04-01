@@ -9,11 +9,20 @@ use axum::{
 };
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::cors::{CorsLayer, Any};
+use futureauth::{FutureAuth, FutureAuthConfig};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub config: config::Config,
+    pub auth: Arc<FutureAuth>,
+}
+
+impl AsRef<Arc<FutureAuth>> for AppState {
+    fn as_ref(&self) -> &Arc<FutureAuth> {
+        &self.auth
+    }
 }
 
 #[tokio::main]
@@ -25,14 +34,24 @@ async fn main() {
     let pool = db::init_pool(&config.database_url).await;
     let listen_addr = config.listen_addr.clone();
 
-    let state = AppState { db: pool, config };
+    // Initialize FutureAuth
+    let auth = FutureAuth::new(pool.clone(), FutureAuthConfig {
+        api_url: config.futureauth_api_url.clone(),
+        secret_key: config.futureauth_secret_key.clone(),
+        project_name: "Moderac".to_string(),
+        ..Default::default()
+    });
+    auth.ensure_tables().await.expect("Failed to create FutureAuth tables");
+
+    let state = AppState {
+        db: pool,
+        config,
+        auth,
+    };
 
     let api = Router::new()
-        // Auth
-        .route("/auth/login", post(handlers::auth::login))
-        .route("/auth/verify", post(handlers::auth::verify))
-        .route("/auth/me", get(handlers::auth::me))
-        .route("/auth/logout", post(handlers::auth::logout))
+        // FutureAuth routes (send-otp, verify-otp, session, sign-out)
+        .merge(futureauth::axum::auth_router(state.auth.clone()))
         // Projects
         .route("/projects", get(handlers::projects::list).post(handlers::projects::create))
         .route("/projects/{id}", get(handlers::projects::get).put(handlers::projects::update).delete(handlers::projects::delete))

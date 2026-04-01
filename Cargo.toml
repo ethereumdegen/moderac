@@ -21,3 +21,5 @@ rand = "0.8"
 dotenvy = "0.15"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+futureauth = { version = "0.3", features = ["axum-integration"] }
+reqwest = { version = "0.12", features = ["json"] }

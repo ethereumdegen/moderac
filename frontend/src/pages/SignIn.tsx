@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { api } from '../lib/api'
+import { authClient } from '../lib/auth-client'
 import SiteHeader from '../components/SiteHeader'
 
 export default function SignIn() {
@@ -15,13 +15,12 @@ export default function SignIn() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    try {
-      await api.login(email)
+    const result = await authClient.emailOtp.sendVerificationOtp({ email, type: 'sign-in' })
+    setLoading(false)
+    if (result?.error) {
+      setError(result.error.message)
+    } else {
       setStep('code')
-    } catch {
-      setError('Failed to send code')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -29,13 +28,12 @@ export default function SignIn() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    try {
-      await api.verify(email, code)
+    const result = await authClient.emailOtp.verifyEmail({ email, otp: code })
+    setLoading(false)
+    if (result.error) {
+      setError(result.error.message)
+    } else {
       navigate('/dashboard')
-    } catch {
-      setError('Invalid code')
-    } finally {
-      setLoading(false)
     }
   }
 

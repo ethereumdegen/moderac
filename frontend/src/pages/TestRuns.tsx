@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { api, type TestRun } from '../lib/api'
+import { useSession } from '../lib/auth-client'
 import SiteHeader from '../components/SiteHeader'
 
 export default function TestRuns() {
   const { id: projectId } = useParams()
+  const { data: session } = useSession()
   const [runs, setRuns] = useState<TestRun[]>([])
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null)
 
   useEffect(() => {
     if (!projectId) return
-    api.me().then(setUser)
     api.listRuns(projectId).then(setRuns)
   }, [projectId])
 
@@ -24,7 +24,7 @@ export default function TestRuns() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SiteHeader user={user} />
+      <SiteHeader user={session?.user} />
       <div className="flex-1 max-w-4xl mx-auto w-full px-6 py-10">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold">Test Runs</h1>

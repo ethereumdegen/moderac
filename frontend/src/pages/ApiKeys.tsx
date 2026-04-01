@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { api, type ApiKey } from '../lib/api'
+import { useSession } from '../lib/auth-client'
 import SiteHeader from '../components/SiteHeader'
 
 export default function ApiKeys() {
   const { id: projectId } = useParams()
+  const { data: session } = useSession()
   const [keys, setKeys] = useState<ApiKey[]>([])
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null)
   const [name, setName] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!projectId) return
-    api.me().then(setUser)
     api.listApiKeys(projectId).then(setKeys)
   }, [projectId])
 
@@ -36,7 +36,7 @@ export default function ApiKeys() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SiteHeader user={user} />
+      <SiteHeader user={session?.user} />
       <div className="flex-1 max-w-4xl mx-auto w-full px-6 py-10">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold">API Keys</h1>

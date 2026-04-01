@@ -17,12 +17,6 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  // Auth
-  login: (email: string) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email }) }),
-  verify: (email: string, code: string) => request<{ user: { id: string; email: string } }>('/auth/verify', { method: 'POST', body: JSON.stringify({ email, code }) }),
-  me: () => request<{ id: string; email: string }>('/auth/me'),
-  logout: () => request('/auth/logout', { method: 'POST' }),
-
   // Projects
   listProjects: () => request<Project[]>('/projects'),
   createProject: (data: { name: string; description?: string; base_url?: string }) => request<Project>('/projects', { method: 'POST', body: JSON.stringify(data) }),

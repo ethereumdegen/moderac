@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { api, type Project, type Test, type TestRun } from '../lib/api'
+import { useSession } from '../lib/auth-client'
 import SiteHeader from '../components/SiteHeader'
 
 export default function ProjectDetail() {
   const { id } = useParams()
+  const { data: session } = useSession()
   const [project, setProject] = useState<Project | null>(null)
   const [tests, setTests] = useState<Test[]>([])
   const [runs, setRuns] = useState<TestRun[]>([])
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null)
   const [running, setRunning] = useState(false)
 
   useEffect(() => {
     if (!id) return
-    api.me().then(setUser)
     api.getProject(id).then(setProject)
     api.listTests(id).then(setTests)
     api.listRuns(id).then(setRuns)
@@ -42,7 +42,7 @@ export default function ProjectDetail() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SiteHeader user={user} />
+      <SiteHeader user={session?.user} />
       <div className="flex-1 max-w-4xl mx-auto w-full px-6 py-10">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-bold">{project.name}</h1>
@@ -61,7 +61,6 @@ export default function ProjectDetail() {
         </div>
         {project.description && <p className="text-text-muted mb-8">{project.description}</p>}
 
-        {/* Tests */}
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Tests</h2>
@@ -90,7 +89,6 @@ export default function ProjectDetail() {
           )}
         </div>
 
-        {/* Recent Runs */}
         <div className="mt-10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Recent runs</h2>

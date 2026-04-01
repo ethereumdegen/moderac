@@ -1,4 +1,3 @@
-pub mod auth;
 pub mod projects;
 pub mod tests;
 pub mod runs;
@@ -12,7 +11,7 @@ use axum::{
 
 use crate::AppState;
 
-/// Authenticated user extractor
+/// Authenticated user extractor using FutureAuth session cookie.
 #[derive(Debug, Clone)]
 pub struct AuthUser {
     pub user_id: String,
@@ -29,28 +28,59 @@ impl FromRequestParts<AppState> for AuthUser {
             .and_then(|v| v.to_str().ok())
             .unwrap_or("");
 
-        let session_id = cookie_header
+        let session_token = cookie_header
             .split(';')
             .filter_map(|c| {
                 let c = c.trim();
-                c.strip_prefix("session=")
+                c.strip_prefix("futureauth_session=")
             })
             .next()
             .ok_or(StatusCode::UNAUTHORIZED)?;
 
-        let row = sqlx::query_as::<_, (String, String)>(
-            "SELECT u.id, u.email FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.id = $1 AND s.expires_at > NOW()"
+        // Validate session against FutureAuth tables
+        let session = sqlx::query_as::<_, (String,)>(
+            r#"SELECT user_id FROM session WHERE token = $1 AND expires_at > NOW()"#,
         )
-        .bind(session_id)
+        .bind(session_token)
         .fetch_optional(&state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-        Ok(AuthUser {
-            user_id: row.0,
-            email: row.1,
-        })
+        let futureauth_user_id = &session.0;
+
+        // Get email from FutureAuth user table
+        let fa_user = sqlx::query_as::<_, (Option<String>,)>(
+            r#"SELECT email FROM "user" WHERE id = $1"#,
+        )
+        .bind(futureauth_user_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+        let email = fa_user.0.unwrap_or_default();
+
+        // Upsert into our local users table
+        sqlx::query(
+            "INSERT INTO users (id, email) VALUES ($1, $2) ON CONFLICT(email) DO UPDATE SET id = users.id"
+        )
+        .bind(futureauth_user_id)
+        .bind(&email)
+        .execute(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        // Get the actual local user id (may differ if email existed before)
+        let (user_id,) = sqlx::query_as::<_, (String,)>(
+            "SELECT id FROM users WHERE email = $1"
+        )
+        .bind(&email)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        Ok(AuthUser { user_id, email })
     }
 }
 

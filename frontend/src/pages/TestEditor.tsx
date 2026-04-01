@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { api } from '../lib/api'
+import { useSession } from '../lib/auth-client'
 import SiteHeader from '../components/SiteHeader'
 
 export default function TestEditor() {
   const { id: projectId, testId } = useParams()
   const navigate = useNavigate()
   const isNew = !testId
+  const { data: session } = useSession()
   const [name, setName] = useState('')
   const [prompt, setPrompt] = useState('')
   const [expected, setExpected] = useState('')
   const [saving, setSaving] = useState(false)
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null)
 
   useEffect(() => {
-    api.me().then(setUser)
     if (testId && projectId) {
       api.getTest(projectId, testId).then(t => {
         setName(t.name)
@@ -49,7 +49,7 @@ export default function TestEditor() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SiteHeader user={user} />
+      <SiteHeader user={session?.user} />
       <div className="flex-1 max-w-3xl mx-auto w-full px-6 py-10">
         <h1 className="text-2xl font-bold mb-8">{isNew ? 'New test' : 'Edit test'}</h1>
         <form onSubmit={handleSave} className="space-y-6">

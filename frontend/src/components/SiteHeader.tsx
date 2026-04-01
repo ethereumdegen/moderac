@@ -1,9 +1,7 @@
-import { Link, useNavigate } from 'react-router'
-import { api } from '../lib/api'
+import { Link } from 'react-router'
+import { signOut } from '../lib/auth-client'
 
 export default function SiteHeader({ user }: { user?: { email: string } | null }) {
-  const navigate = useNavigate()
-
   return (
     <header className="border-b border-border px-6 py-4 flex items-center justify-between">
       <Link to="/" className="text-lg font-semibold tracking-tight">
@@ -14,7 +12,7 @@ export default function SiteHeader({ user }: { user?: { email: string } | null }
           <>
             <Link to="/dashboard" className="text-text-muted hover:text-text transition-colors">Dashboard</Link>
             <button
-              onClick={async () => { await api.logout(); navigate('/') }}
+              onClick={() => signOut()}
               className="text-text-muted hover:text-text transition-colors"
             >
               Sign out
