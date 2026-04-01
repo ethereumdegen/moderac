@@ -111,14 +111,135 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Code Example */}
+      {/* Install */}
+      <section className="px-6 py-20 border-t border-border">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl font-bold mb-4">Get started in seconds</h2>
+          <p className="text-text-muted mb-8 max-w-xl mx-auto">
+            Install the CLI, scaffold your test directory, and start writing prompt-based tests.
+            No config files. No boilerplate. Just markdown.
+          </p>
+          <div className="bg-bg-card border border-border rounded-xl p-5 inline-block mb-8">
+            <code className="font-mono text-lg text-accent">cargo install moderac</code>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6 text-left mt-6">
+            <div className="p-5 bg-bg-card border border-border rounded-xl">
+              <div className="font-mono text-sm text-accent mb-3">$ moderac init</div>
+              <p className="text-sm text-text-muted">
+                Scaffolds a <code className="text-text font-mono text-xs">moderac-tests/</code> directory
+                with example tests and a <code className="text-text font-mono text-xs">skills/</code> folder
+                for reusable context.
+              </p>
+            </div>
+            <div className="p-5 bg-bg-card border border-border rounded-xl">
+              <div className="font-mono text-sm text-accent mb-3">$ moderac test</div>
+              <p className="text-sm text-text-muted">
+                Discovers all <code className="text-text font-mono text-xs">.md</code> test files,
+                resolves skill references, and runs them locally or against the remote LLM judge.
+              </p>
+            </div>
+            <div className="p-5 bg-bg-card border border-border rounded-xl">
+              <div className="font-mono text-sm text-accent mb-3">$ moderac help</div>
+              <p className="text-sm text-text-muted">
+                Prints a full reference designed for AI agents — so Claude Code, Cursor, or any
+                coding agent can read it and use moderac autonomously.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Test File Format */}
       <section className="px-6 py-20 border-t border-border">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl font-bold mb-6">Integrate with your test suite</h2>
-          <p className="text-text-muted mb-8">Use the Rust SDK to define prompt-based tests alongside your regular tests.</p>
-          <div className="bg-bg-card border border-border rounded-xl p-6 overflow-x-auto">
+          <h2 className="text-3xl font-bold mb-4">Tests are just markdown</h2>
+          <p className="text-text-muted mb-8">
+            Each test is a <code className="text-text font-mono text-sm">.md</code> file with
+            YAML frontmatter and a natural language prompt. Skills are reusable markdown files
+            that get composed into your tests automatically.
+          </p>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <div className="text-xs text-text-muted mb-2 font-mono">moderac-tests/user-signup.md</div>
+              <div className="bg-bg-card border border-border rounded-xl p-5 overflow-x-auto">
+                <pre className="font-mono text-sm leading-relaxed text-text-muted">{`---
+name: user-signup
+tags: [auth, signup]
+skills: [json-api]
+expected: Returns 201 with user ID
+---
+
+Sign up a new user with email
+test@example.com.
+
+The system should:
+- Create the user account
+- Return the new user's ID
+- Send a welcome email`}</pre>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-text-muted mb-2 font-mono">moderac-tests/skills/json-api.md</div>
+              <div className="bg-bg-card border border-border rounded-xl p-5 overflow-x-auto">
+                <pre className="font-mono text-sm leading-relaxed text-text-muted">{`---
+name: json-api
+description: JSON REST API testing
+---
+
+You are testing a JSON REST API.
+When evaluating responses, check:
+- Correct HTTP status codes
+- Valid JSON structure
+- Required fields present
+- Appropriate error messages`}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Agent-native */}
+      <section className="px-6 py-20 border-t border-border">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-3xl font-bold mb-4">Built for AI agents</h2>
+          <p className="text-text-muted mb-8">
+            Every command supports <code className="text-text font-mono text-sm">--json</code> for
+            structured output. AI coding agents can discover tests, run them, and parse results
+            without scraping terminal output.
+          </p>
+          <div className="bg-bg-card border border-border rounded-xl p-5 overflow-x-auto">
             <pre className="font-mono text-sm leading-relaxed">
-              <code className="text-text-muted">{`use moderac::prompt;
+              <code className="text-text-muted">{`$ moderac test --remote --json
+{
+  "status": "passed",
+  "passed": 5,
+  "failed": 1,
+  "total": 6,
+  "results": [
+    {
+      "name": "user-signup",
+      "status": "passed",
+      "score": 0.95,
+      "evaluation": "Response correctly returns 201..."
+    }
+  ]
+}`}</code>
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      {/* Rust library */}
+      <section className="px-6 py-20 border-t border-border">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-3xl font-bold mb-4">Or use the Rust library directly</h2>
+          <p className="text-text-muted mb-8">
+            Add <code className="text-text font-mono text-sm">moderac</code> as a dev dependency
+            and write prompt-based tests alongside your regular test suite.
+          </p>
+          <div className="bg-bg-card border border-border rounded-xl p-5 overflow-x-auto">
+            <pre className="font-mono text-sm leading-relaxed">
+              <code className="text-text-muted">{`use moderac::client::prompt;
 
 #[tokio::test]
 async fn test_user_signup() {
@@ -140,13 +261,20 @@ async fn test_user_signup() {
       <section className="px-6 py-24 border-t border-border text-center">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-3xl font-bold mb-4">Start testing with prompts</h2>
-          <p className="text-text-muted mb-8">Free to get started. Define your first prompt-based test in minutes.</p>
-          <Link
-            to="/signin"
-            className="inline-block px-8 py-3 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors"
-          >
-            Get started free
-          </Link>
+          <p className="text-text-muted mb-8">
+            Open source CLI. Free to use locally. Connect to moderac.com for LLM-judged evaluation.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="bg-bg-card border border-border rounded-lg px-5 py-3">
+              <code className="font-mono text-accent">cargo install moderac</code>
+            </div>
+            <Link
+              to="/signin"
+              className="px-8 py-3 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors"
+            >
+              Sign up for remote evaluation
+            </Link>
+          </div>
         </div>
       </section>
 
