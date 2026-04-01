@@ -31,11 +31,26 @@ enum Commands {
         #[arg(long)]
         remote: bool,
 
+        /// Agent mode: output codegen instructions for AI agents to write and run real tests
+        #[arg(long)]
+        agent: bool,
+
         /// Filter tests by tag
         #[arg(long)]
         tag: Option<String>,
 
         /// Run only a specific test by name
+        #[arg(long)]
+        name: Option<String>,
+    },
+
+    /// Collect results written by an agent after `moderac test --agent`
+    Report {
+        /// Filter tests by tag
+        #[arg(long)]
+        tag: Option<String>,
+
+        /// Report only a specific test by name
         #[arg(long)]
         name: Option<String>,
     },
@@ -63,7 +78,8 @@ async fn main() {
     let code = match cli.command {
         Commands::Init => cmd_init(&dir, json),
         Commands::List => cmd_list(&dir, json),
-        Commands::Test { remote, tag, name } => cmd_test(&dir, json, remote, tag, name).await,
+        Commands::Test { remote, agent, tag, name } => cmd_test(&dir, json, remote, agent, tag, name).await,
+        Commands::Report { tag, name } => cmd_report(&dir, json, tag, name),
         Commands::Sync => cmd_sync(&dir, json).await,
         Commands::Show { file } => cmd_show(&file, json),
         Commands::AgentHelp => { println!("{}", moderac::help::agent_help()); 0 }
@@ -174,7 +190,7 @@ fn cmd_list(dir: &PathBuf, json: bool) -> i32 {
     0
 }
 
-async fn cmd_test(dir: &PathBuf, json: bool, remote: bool, tag: Option<String>, name: Option<String>) -> i32 {
+async fn cmd_test(dir: &PathBuf, json: bool, remote: bool, agent: bool, tag: Option<String>, name: Option<String>) -> i32 {
     let suite = match moderac::load_suite(Some(dir)) {
         Ok(s) => s,
         Err(e) => {
@@ -223,6 +239,66 @@ async fn cmd_test(dir: &PathBuf, json: bool, remote: bool, tag: Option<String>, 
 
     if !json {
         println!("{} Running {} tests...\n", "▶".blue(), tests.len());
+    }
+
+    if agent {
+        // Agent mode: output structured instructions for AI agents to write real tests
+        // Also ensure .results dir exists and is clean for these tests
+        let results_dir = dir.join(".results");
+        let _ = std::fs::create_dir_all(&results_dir);
+
+        let mut test_data = Vec::new();
+
+        for test in &tests {
+            let resolved = moderac::local::resolve_prompt(test, &suite);
+
+            let codegen_instruction = format!(
+                "Write and execute a real test (unit test, integration test, or assertion-based check) that verifies the following behavior:\n\n\
+                 **Expected:** {}\n\n\
+                 **Details:**\n{}\n\n\
+                 After running the test, write the result to: {}\n\
+                 The result file must be JSON: {{\"status\": \"passed\" | \"failed\", \"reason\": \"...\"}}",
+                test.expected.as_deref().unwrap_or("(see prompt)"),
+                test.prompt.trim(),
+                results_dir.join(format!("{}.json", test.name)).display()
+            );
+
+            if json {
+                test_data.push(serde_json::json!({
+                    "name": test.name,
+                    "tags": test.tags,
+                    "skills": test.skills,
+                    "expected": test.expected,
+                    "prompt": test.prompt,
+                    "resolved_prompt": resolved,
+                    "codegen_instruction": codegen_instruction,
+                    "result_path": results_dir.join(format!("{}.json", test.name)).display().to_string(),
+                }));
+            } else {
+                println!("  {} {}", "▶".blue(), test.name.bold());
+                println!("    {}", codegen_instruction.lines().next().unwrap_or(""));
+                if let Some(ref exp) = test.expected {
+                    println!("    Expected: {}", exp);
+                }
+                println!("    Result → {}", results_dir.join(format!("{}.json", test.name)).display());
+                println!();
+            }
+        }
+
+        if json {
+            println!("{}", serde_json::json!({
+                "status": "agent",
+                "total": tests.len(),
+                "results_dir": results_dir.display().to_string(),
+                "instructions": "For each test, write and run real code tests (unit/integration) that verify the described behavior. Write a JSON result file to the result_path for each test. Then run `moderac report --json` to collect results.",
+                "tests": test_data,
+            }));
+        } else {
+            println!("{}", "Agent mode: write and run real tests for each item above.".dimmed());
+            println!("Write results to {}/", results_dir.display());
+            println!("Then run {} to collect results.", "moderac report".bold());
+        }
+        return 0;
     }
 
     if remote {
@@ -366,6 +442,153 @@ async fn cmd_sync(dir: &PathBuf, json: bool) -> i32 {
             2
         }
     }
+}
+
+fn cmd_report(dir: &PathBuf, json: bool, tag: Option<String>, name: Option<String>) -> i32 {
+    let suite = match moderac::load_suite(Some(dir)) {
+        Ok(s) => s,
+        Err(e) => {
+            if json {
+                println!("{}", serde_json::json!({ "status": "error", "error": e }));
+            } else {
+                eprintln!("{} {}", "error:".red().bold(), e);
+            }
+            return 2;
+        }
+    };
+
+    let results_dir = dir.join(".results");
+    if !results_dir.exists() {
+        let msg = "No .results/ directory found. Run `moderac test --agent` first, then write result files.";
+        if json {
+            println!("{}", serde_json::json!({ "status": "error", "error": msg }));
+        } else {
+            eprintln!("{} {}", "error:".red().bold(), msg);
+        }
+        return 2;
+    }
+
+    let tests: Vec<_> = suite.tests.iter().filter(|t| {
+        if let Some(ref n) = name {
+            return &t.name == n;
+        }
+        if let Some(ref tag) = tag {
+            return t.tags.contains(tag);
+        }
+        true
+    }).collect();
+
+    let mut passed = 0usize;
+    let mut failed = 0usize;
+    let mut missing = 0usize;
+    let mut results_json = Vec::new();
+
+    for test in &tests {
+        let result_path = results_dir.join(format!("{}.json", test.name));
+
+        if !result_path.exists() {
+            missing += 1;
+            if json {
+                results_json.push(serde_json::json!({
+                    "name": test.name,
+                    "status": "missing",
+                    "reason": "No result file found",
+                    "tags": test.tags,
+                }));
+            } else {
+                println!("  {} {} {}", "•".dimmed(), test.name, "MISSING".yellow().bold());
+            }
+            continue;
+        }
+
+        let content = match std::fs::read_to_string(&result_path) {
+            Ok(c) => c,
+            Err(e) => {
+                failed += 1;
+                if json {
+                    results_json.push(serde_json::json!({
+                        "name": test.name,
+                        "status": "error",
+                        "reason": format!("Failed to read result: {e}"),
+                        "tags": test.tags,
+                    }));
+                } else {
+                    println!("  {} {} {} {}", "•".dimmed(), test.name, "ERROR".red().bold(), e);
+                }
+                continue;
+            }
+        };
+
+        let result: serde_json::Value = match serde_json::from_str(&content) {
+            Ok(v) => v,
+            Err(e) => {
+                failed += 1;
+                if json {
+                    results_json.push(serde_json::json!({
+                        "name": test.name,
+                        "status": "error",
+                        "reason": format!("Invalid JSON in result: {e}"),
+                        "tags": test.tags,
+                    }));
+                } else {
+                    println!("  {} {} {} bad JSON: {}", "•".dimmed(), test.name, "ERROR".red().bold(), e);
+                }
+                continue;
+            }
+        };
+
+        let status = result.get("status").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let reason = result.get("reason").and_then(|v| v.as_str()).unwrap_or("");
+
+        if status == "passed" {
+            passed += 1;
+            if json {
+                results_json.push(serde_json::json!({
+                    "name": test.name,
+                    "status": "passed",
+                    "reason": reason,
+                    "tags": test.tags,
+                }));
+            } else {
+                println!("  {} {} {}", "•".dimmed(), test.name, "PASS".green().bold());
+            }
+        } else {
+            failed += 1;
+            if json {
+                results_json.push(serde_json::json!({
+                    "name": test.name,
+                    "status": status,
+                    "reason": reason,
+                    "tags": test.tags,
+                }));
+            } else {
+                println!("  {} {} {}", "•".dimmed(), test.name, "FAIL".red().bold());
+                if !reason.is_empty() {
+                    println!("    {}", reason.dimmed());
+                }
+            }
+        }
+    }
+
+    if json {
+        let overall = if failed == 0 && missing == 0 { "passed" } else { "failed" };
+        println!("{}", serde_json::json!({
+            "status": overall,
+            "passed": passed,
+            "failed": failed,
+            "missing": missing,
+            "total": tests.len(),
+            "results": results_json,
+        }));
+    } else {
+        println!();
+        println!("{} passed, {} failed, {} missing",
+            passed.to_string().green(),
+            failed.to_string().red(),
+            missing.to_string().yellow());
+    }
+
+    if failed > 0 || missing > 0 { 1 } else { 0 }
 }
 
 fn cmd_show(file: &PathBuf, json: bool) -> i32 {

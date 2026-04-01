@@ -24,6 +24,8 @@ to know:
 moderac init                     # scaffold moderac-tests/ with examples
 moderac list --json              # discover tests and skills as JSON
 moderac test --json              # local: get all tests with resolved prompts
+moderac test --agent --json      # agent: get codegen instructions, write real tests
+moderac report --json            # collect pass/fail results from agent-written tests
 moderac test --remote --json     # remote: evaluate and get structured results
 ```
 
@@ -68,6 +70,55 @@ When evaluating responses, check for:
 - Valid JSON structure
 - Required fields present in response body
 - Appropriate error messages for failure cases
+```
+
+### Agent mode (recommended for local testing)
+
+`moderac test --agent --json` outputs codegen instructions for each test.
+The agent should:
+1. Read each test's `codegen_instruction` and `resolved_prompt`
+2. Write real unit/integration tests that verify the described behavior
+3. Run the tests
+4. Write a JSON result to each test's `result_path`:
+   `{"status": "passed", "reason": "test description"}` or
+   `{"status": "failed", "reason": "what went wrong"}`
+5. Run `moderac report --json` to collect all results
+
+This is the primary local workflow — it turns prompt-based tests into real
+executable tests verified by the coding agent.
+
+```json
+// moderac test --agent --json
+{
+  "status": "agent",
+  "total": 6,
+  "results_dir": "moderac-tests/.results",
+  "instructions": "For each test, write and run real code tests...",
+  "tests": [
+    {
+      "name": "user-signup",
+      "expected": "Returns a 201 with user ID",
+      "prompt": "<raw prompt body>",
+      "resolved_prompt": "<with skills prepended>",
+      "codegen_instruction": "Write and execute a real test that verifies...",
+      "result_path": "moderac-tests/.results/user-signup.json"
+    }
+  ]
+}
+```
+
+```json
+// moderac report --json
+{
+  "status": "passed",
+  "passed": 5,
+  "failed": 1,
+  "missing": 0,
+  "total": 6,
+  "results": [
+    {"name": "user-signup", "status": "passed", "reason": "..."}
+  ]
+}
 ```
 
 ### Reading test results (--json output)
@@ -167,9 +218,11 @@ Use for shared setup, personas, evaluation criteria, or domain knowledge.
 moderac init                        Create moderac-tests/ with examples
 moderac list [--json]               List all tests and skills
 moderac test [--json]               Local: display/output test definitions
+moderac test --agent [--json]       Agent: output codegen instructions for real tests
 moderac test --remote [--json]      Remote: evaluate via LLM judge
 moderac test --tag <tag> [--json]   Filter by tag
 moderac test --name <name> [--json] Run a single test by name
+moderac report [--json]             Collect results from agent-written tests
 moderac sync                        Push local tests to remote project
 moderac show <file> [--json]        Display a parsed .md file
 moderac agent-help                  Print this help text (for AI agents)
