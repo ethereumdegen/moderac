@@ -24,8 +24,6 @@ WORKDIR /app
 COPY --from=builder /app/target/release/moderac-server .
 COPY --from=frontend /app/frontend/dist frontend/dist/
 
-ENV LISTEN_ADDR=0.0.0.0:${PORT:-3000}
-
 EXPOSE 3000
 
 CMD ["./moderac-server"]
