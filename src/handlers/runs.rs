@@ -83,8 +83,9 @@ pub async fn create(
         let result_id = Uuid::new_v4().to_string();
         let start = std::time::Instant::now();
 
+        let api_key = state.config.openai_api_key.as_deref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
         let (status, score, evaluation) = crate::eval::evaluate_test(
-            &state.config.openai_api_key,
+            api_key,
             prompt,
             expected.as_deref(),
             eval_criteria.as_deref(),

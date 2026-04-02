@@ -1,8 +1,16 @@
 import { Link } from 'react-router'
+import { useEffect, useState } from 'react'
 import SiteHeader from '../components/SiteHeader'
 import SiteFooter from '../components/SiteFooter'
+import { getFeatures } from '../lib/api'
 
 export default function Landing() {
+  const [authEnabled, setAuthEnabled] = useState(false)
+
+  useEffect(() => {
+    getFeatures().then(f => setAuthEnabled(f.auth))
+  }, [])
+
   return (
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
@@ -23,12 +31,14 @@ export default function Landing() {
           Stop writing tests that the same AI can game.
         </p>
         <div className="flex gap-4 justify-center">
-          <Link
-            to="/signin"
-            className="px-6 py-3 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors"
-          >
-            Get started
-          </Link>
+          {authEnabled && (
+            <Link
+              to="/signin"
+              className="px-6 py-3 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors"
+            >
+              Get started
+            </Link>
+          )}
           <a
             href="#how-it-works"
             className="px-6 py-3 border border-border hover:border-border-hover text-text-muted hover:text-text rounded-lg font-medium transition-colors"
@@ -268,12 +278,14 @@ async fn test_user_signup() {
             <div className="bg-bg-card border border-border rounded-lg px-5 py-3">
               <code className="font-mono text-accent">cargo install moderac</code>
             </div>
-            <Link
-              to="/signin"
-              className="px-8 py-3 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors"
-            >
-              Sign up for remote evaluation
-            </Link>
+            {authEnabled && (
+              <Link
+                to="/signin"
+                className="px-8 py-3 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors"
+              >
+                Sign up for remote evaluation
+              </Link>
+            )}
           </div>
         </div>
       </section>

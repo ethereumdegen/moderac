@@ -75,7 +75,7 @@ pub async fn trigger_run(
         let start = std::time::Instant::now();
 
         let (status, score, evaluation) = crate::eval::evaluate_test(
-            &state.config.openai_api_key,
+            state.config.openai_api_key.as_deref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?,
             prompt,
             expected.as_deref(),
             eval_criteria.as_deref(),
@@ -171,7 +171,7 @@ pub async fn evaluate(
     Json(body): Json<EvaluateRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let (status, score, evaluation) = crate::eval::evaluate_test(
-        &state.config.openai_api_key,
+        state.config.openai_api_key.as_deref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?,
         &body.prompt,
         body.expected.as_deref(),
         body.eval_criteria.as_ref().map(|v| v.to_string()).as_deref(),

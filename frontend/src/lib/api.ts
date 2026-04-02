@@ -16,6 +16,24 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
+export interface Features {
+  auth: boolean
+  eval: boolean
+}
+
+let featuresCache: Features | null = null
+
+export async function getFeatures(): Promise<Features> {
+  if (featuresCache) return featuresCache
+  try {
+    const res = await fetch('/api/features')
+    featuresCache = await res.json()
+    return featuresCache!
+  } catch {
+    return { auth: false, eval: false }
+  }
+}
+
 export const api = {
   // Projects
   listProjects: () => request<Project[]>('/projects'),
